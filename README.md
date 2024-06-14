@@ -14,7 +14,7 @@ pip install requirements.txt
 ```
 
 ## Usage
-Clone the repository, download some model ([Llama-3-8B-Instruct](https://huggingface.co/turboderp/Llama-3-8B-Instruct-exl2) recommended) and translate something:
+Clone the repository, download a model ([Llama-3-8B-Instruct](https://huggingface.co/turboderp/Llama-3-8B-Instruct-exl2) recommended) and translate something:
 ```
 git lfs install
 git clone https://github.com/zuellni/translation-tools -b main --depth 1 tools & cd tools
