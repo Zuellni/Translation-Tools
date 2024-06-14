@@ -10,7 +10,7 @@ conda activate tools
 
 Install requirements, use wheels for [ExLlamaV2](https://github.com/turboderp/exllamav2/releases/latest) and [Flash Attention](https://github.com/bdashore3/flash-attention/releases/latest) on Windows:
 ```
-pip install requirements.txt
+pip install -r requirements.txt
 ```
 
 ## Usage
