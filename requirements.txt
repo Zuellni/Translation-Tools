@@ -1,5 +1,5 @@
 exllamav2
 flash-attn
 lmformatenforcer
-rich
+pycountry
 webvtt-py
