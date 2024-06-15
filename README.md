@@ -1,5 +1,5 @@
 # Translation Tools
-LLM translation toolkit for srt/vtt subtitle files.
+LLM translation toolkit for subtitle files.
 
 ## Installation
 Create a new environment with conda/mamba:
@@ -27,3 +27,9 @@ git lfs install
 git clone https://huggingface.co/turboderp/Llama-3-8B-Instruct-exl2 -b 6.0bpw tools/model
 python tools/translate.py -m tools/model -i tools/test.zh.vtt
 ```
+
+## TODO
+- [ ] Add a second pass to fix the flow.
+- [ ] Add timestamps for better awareness.
+- [ ] Load instruction format from model config.
+- [ ] Train a LoRA on human-translated subs.
