@@ -65,21 +65,13 @@ for input in inputs:
     schema = JsonSchemaParser(Translation.schema())
 
     settings = ExLlamaV2Sampler.Settings()
-    settings.temperature = 1.0
-    settings.top_k = 0
-    settings.top_p = 1.0
-    settings.typical = 1.0
-    settings.min_p = 0.0
-    settings.top_a = 0.1
-    settings.token_repetition_penalty = 1.0
-    settings.temperature_last = True
+    settings.greedy()
 
     init_len = config.max_seq_len
     init_alpha = config.scale_alpha_value
 
     print(
         f'Model: "{args.model.name.lower()}"\n'
-        f"Flash Attention: {'\"true\"' if attn.has_flash_attn else '\"false\"'}\n"
         f"Initial Sequence: {init_len}\n"
         f"Initial Alpha: {init_alpha}\n"
     )
@@ -93,7 +85,7 @@ for input in inputs:
 
     prompt = (
         f"{system}Translate each line from {lang_from} to {lang_to}. "
-        "Take all lines into consideration. "
+        "Consider the meaning of all lines when translating. "
         "Return the translation in JSON format."
         f"{user}{{{lines}}}{assistant}"
     )
