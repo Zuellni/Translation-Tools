@@ -7,8 +7,20 @@ from typing import Annotated, Dict
 import pycountry
 import torch
 import webvtt
-from exllamav2 import *
-from exllamav2.generator import ExLlamaV2DynamicGenerator, ExLlamaV2DynamicJob, ExLlamaV2Sampler
+from exllamav2 import (
+    ExLlamaV2,
+    ExLlamaV2Cache,
+    ExLlamaV2Cache_Q4,
+    ExLlamaV2Cache_Q6,
+    ExLlamaV2Cache_Q8,
+    ExLlamaV2Config,
+    ExLlamaV2Tokenizer,
+)
+from exllamav2.generator import (
+    ExLlamaV2DynamicGenerator,
+    ExLlamaV2DynamicJob,
+    ExLlamaV2Sampler,
+)
 from exllamav2.generator.filters import ExLlamaV2PrefixFilter
 from lmformatenforcer import JsonSchemaParser
 from lmformatenforcer.integrations.exllamav2 import ExLlamaV2TokenEnforcerFilter
@@ -29,13 +41,14 @@ lang_from = args.lang_from.capitalize().strip()
 lang_to = args.lang_to.capitalize().strip()
 lang_code = pycountry.languages.get(name=lang_to)
 lang_code = lang_code.alpha_2 if lang_code else lang_to.lower()[:2]
-inputs = []
 
-if (input := args.input).is_dir():
-    for suffix in ("srt", "vtt"):
-        inputs.extend(input.glob(f"*.{suffix}"))
-elif input.is_file():
-    inputs.append(input)
+inputs = (
+    [i for i in args.input.glob("*.*") if i.suffix in (".srt", ".vtt")]
+    if args.input.is_dir()
+    else [args.input]
+    if args.input.is_file()
+    else []
+)
 
 if (seed := args.seed) != -1:
     torch.manual_seed(seed)
@@ -49,12 +62,13 @@ for input in inputs:
         root: Annotated[
             Dict[
                 Annotated[int, Field(ge=1, le=subs_len)],
-                Annotated[str,
+                Annotated[
+                    str,
                     StringConstraints(
                         min_length=1,
                         max_length=args.line_len,
                         strip_whitespace=True,
-                    )
+                    ),
                 ],
             ],
             subs_len,
@@ -163,17 +177,19 @@ for input in inputs:
 
     result = "".join(chunks)
     result = json.loads(result)
+    result = {int(k): v for k, v in result.items()}
+    result = dict(sorted(result.items()))
 
     for index, key in enumerate(result):
         subs[index].text = result[key]
 
-    input_name = input.name.replace("".join(input.suffixes), "")
-    input_name = f"{input_name}.{lang_code}"
-    output = input.parent / f"{input_name}.vtt"
+    output_name = input.name.replace("".join(input.suffixes), "")
+    output_name = f"{output_name}.{lang_code}"
+    output = input.parent / f"{output_name}.vtt"
     index = 1
 
     while output.exists():
-        output = input.parent / f"{input_name}.{index}.vtt"
+        output = input.parent / f"{output_name}.{index}.vtt"
         index += 1
 
     subs.save(output)
