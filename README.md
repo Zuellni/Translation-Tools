@@ -14,7 +14,7 @@ git clone https://github.com/zuellni/translation-tools tools
 pip install -r tools/requirements.txt
 ```
 
-Use wheels for [ExLlamaV2](https://github.com/turboderp/exllamav2/releases/latest) and [Flash Attention](https://github.com/bdashore3/flash-attention/releases/latest) on Windows:
+Use wheels for [ExLlamaV2](https://github.com/turboderp/exllamav2/releases/latest) and [FlashAttention](https://github.com/bdashore3/flash-attention/releases/latest) on Windows:
 ```
 pip install exllamav2-X.X.X+cuXXX.torch2.X.X-cp3XX-cp3XX-win_amd64.whl
 pip install flash_attn-X.X.X+cuXXX.torch2.X.X-cp3XX-cp3XX-win_amd64.whl
@@ -29,7 +29,5 @@ python tools/translate.py -m tools/model -i tools/test.zh.vtt
 ```
 
 ## TODO
-- [ ] Add a second pass to fix the flow.
-- [ ] Add timestamps for better awareness.
 - [ ] Load instruction format from model config.
 - [ ] Train a LoRA on human-translated subs.
