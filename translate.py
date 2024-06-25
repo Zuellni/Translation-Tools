@@ -1,11 +1,9 @@
 import json
-import random
 from argparse import ArgumentParser
 from pathlib import Path
 from typing import Annotated, Dict
 
 import pycountry
-import torch
 import webvtt
 from exllamav2 import (
     ExLlamaV2,
@@ -34,7 +32,6 @@ parser.add_argument("-f", "--lang_from", type=str, default="Chinese")
 parser.add_argument("-t", "--lang_to", type=str, default="English")
 parser.add_argument("-i", "--input", type=Path, default=".")
 parser.add_argument("-l", "--line_len", type=int, default=128)
-parser.add_argument("-s", "--seed", type=int, default=-1)
 args = parser.parse_args()
 
 lang_from = args.lang_from.capitalize().strip()
@@ -50,10 +47,6 @@ inputs = (
     else []
 )
 
-if (seed := args.seed) != -1:
-    torch.manual_seed(seed)
-    random.seed(seed)
-
 for input in inputs:
     subs = webvtt.from_srt(input) if input.suffix == ".srt" else webvtt.read(input)
     subs_len = len(subs)
@@ -61,7 +54,7 @@ for input in inputs:
     class Translation(RootModel):
         root: Annotated[
             Dict[
-                Annotated[int, Field(ge=1, le=subs_len)],
+                Annotated[int, Field(ge=0, lt=subs_len)],
                 Annotated[
                     str,
                     StringConstraints(
@@ -84,13 +77,7 @@ for input in inputs:
     init_len = config.max_seq_len
     init_alpha = config.scale_alpha_value
 
-    print(
-        f'Model: "{args.model.name.lower()}"\n'
-        f"Initial Sequence: {init_len}\n"
-        f"Initial Alpha: {init_alpha}\n"
-    )
-
-    lines = [f'{index + 1}: "{line.text}"' for index, line in enumerate(subs)]
+    lines = [f'{index}: "{line.text}"' for index, line in enumerate(subs)]
     lines = ", ".join(lines)
 
     system = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
@@ -116,10 +103,10 @@ for input in inputs:
     config.scale_alpha_value = alpha
 
     print(
-        f'File: "{input.stem.lower()}"\n'
+        f'File: "{input.name}"\n'
         f"Lines: {subs_len}\n"
         f"Prompt: {prompt_len}\n"
-        f"Free: {remaining}\n"
+        f"Remaining: {remaining}\n"
         f"Sequence: {max_len}\n"
         f"Alpha: {alpha}\n"
     )
@@ -144,16 +131,6 @@ for input in inputs:
     model.load_autosplit(cache, progress=True)
     generator = ExLlamaV2DynamicGenerator(model, cache, tokenizer)
 
-    memory = torch.cuda.get_device_properties("cuda").total_memory // 1024**2
-    reserved = torch.cuda.memory_reserved("cuda") // 1024**2
-    allocated = torch.cuda.memory_allocated("cuda") // 1024**2
-
-    print(
-        f"\nMemory: {memory}\n"
-        f"Reserved: {reserved}\n"
-        f"Allocated: {allocated}\n"
-    )
-
     job = ExLlamaV2DynamicJob(
         input_ids=ids,
         gen_settings=settings,
@@ -177,11 +154,10 @@ for input in inputs:
 
     result = "".join(chunks)
     result = json.loads(result)
-    result = {int(k): v for k, v in result.items()}
-    result = dict(sorted(result.items()))
+    result = Translation(**result).dict()
 
-    for index, key in enumerate(result):
-        subs[index].text = result[key]
+    for key, value in result.items():
+        subs[key].text = value
 
     output_name = input.name.replace("".join(input.suffixes), "")
     output_name = f"{output_name}.{lang_code}"
