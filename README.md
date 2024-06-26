@@ -27,7 +27,3 @@ git lfs install
 git clone https://huggingface.co/turboderp/Llama-3-8B-Instruct-exl2 -b 6.0bpw tools/model
 python tools/translate.py -m tools/model -i tools/test.zh.vtt
 ```
-
-## TODO
-- [ ] Load instruction format from model config.
-- [ ] Train a LoRA on human-translated subs.
