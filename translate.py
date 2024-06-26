@@ -75,7 +75,9 @@ for input in inputs:
                 Annotated[
                     str,
                     StringConstraints(
-                        min_length=1, max_length=args.line_len, strip_whitespace=True
+                        min_length=1,
+                        max_length=args.line_len,
+                        strip_whitespace=True,
                     ),
                 ],
             ],
@@ -109,7 +111,7 @@ for input in inputs:
 
     input_ids = tokenizer.encode(prompt, encode_special_tokens=True)
     input_len = input_ids.shape[-1]
-    config.max_seq_len = -(max(init_len, subs_len * args.line_len / 4) // -256) * 256
+    config.max_seq_len = int(max(init_len, subs_len * args.line_len / 4) // 256 * 256)
 
     model = ExLlamaV2(config)
     cache = caches[args.cache_bits](model)
@@ -136,7 +138,7 @@ for input in inputs:
     chunks = []
 
     print(
-        f"File: {input.name}\n"
+        f'File: "{input.name}"\n'
         f"Lines: {subs_len}\n"
         f"Tokens: {input_len}\n"
         f"Sequence: {config.max_seq_len}\n"
