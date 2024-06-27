@@ -94,6 +94,7 @@ for input in inputs:
             "content": (
                 f"Translate each line from {lang_from} to {lang_to}. "
                 "Consider the meaning of all lines when translating. "
+                f"Keep the line length under {args.line_len} characters. "
                 "Return the translation in JSON format."
             ),
         },
@@ -138,7 +139,7 @@ for input in inputs:
     chunks = []
 
     print(
-        f'File: "{input.name}"\n'
+        f'Input: "{input.name}"\n'
         f"Lines: {subs_len}\n"
         f"Tokens: {input_len}\n"
         f"Sequence: {config.max_seq_len}\n"
