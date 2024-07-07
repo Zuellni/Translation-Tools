@@ -29,10 +29,11 @@ from rich import print
 parser = ArgumentParser()
 parser.add_argument("-m", "--model", type=DirectoryPath, required=True)
 parser.add_argument("-c", "--cache_bits", type=int, default=16, choices=(4, 6, 8, 16))
+parser.add_argument("-s", "--seq_len", type=int, default=8192)
+parser.add_argument("-l", "--line_len", type=int, default=128)
 parser.add_argument("-f", "--lang_from", type=str, default="Chinese")
 parser.add_argument("-t", "--lang_to", type=str, default="English")
 parser.add_argument("-i", "--input", type=Path, default=".")
-parser.add_argument("-l", "--line_len", type=int, default=128)
 args = parser.parse_args()
 
 lang_from = args.lang_from.capitalize().strip()
@@ -48,7 +49,7 @@ inputs = (
 
 config = ExLlamaV2Config(str(args.model))
 config.fasttensors = True
-init_len = config.max_seq_len
+init_len = args.seq_len or config.max_seq_len
 
 tokenizer = ExLlamaV2Tokenizer(config)
 chat_template = tokenizer.tokenizer_config_dict["chat_template"]
@@ -88,27 +89,30 @@ for input in inputs:
     lines = {index: line.text for index, line in enumerate(subs)}
     lines = json.dumps(lines, ensure_ascii=False, separators=(",", ":"))
 
+    instruction = (
+        f"Translate each line from {lang_from} to {lang_to}. "
+        "Consider the meaning of all lines when translating. "
+        f"Keep the line length under {args.line_len} characters. "
+        "Return the translation in JSON format."
+    )
+
     messages = [
-        {
-            "role": "system",
-            "content": (
-                f"Translate each line from {lang_from} to {lang_to}. "
-                "Consider the meaning of all lines when translating. "
-                f"Keep the line length under {args.line_len} characters. "
-                "Return the translation in JSON format."
-            ),
-        },
-        {
-            "role": "user",
-            "content": lines,
-        },
+        {"role": "system", "content": instruction},
+        {"role": "user", "content": lines},
     ]
 
-    prompt = template.render(
-        messages=messages,
-        bos_token=tokenizer.bos_token,
-        add_generation_prompt=True,
-    )
+    try:
+        prompt = template.render(
+            messages=messages,
+            bos_token=tokenizer.bos_token,
+            add_generation_prompt=True,
+        )
+    except:
+        prompt = template.render(
+            messages=[{"role": "user", "content": f"{instruction}\n{lines}"}],
+            bos_token=tokenizer.bos_token,
+            add_generation_prompt=True,
+        )
 
     input_ids = tokenizer.encode(prompt, encode_special_tokens=True)
     input_len = input_ids.shape[-1]
