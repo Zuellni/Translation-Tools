@@ -23,11 +23,11 @@ from exllamav2.generator.filters import ExLlamaV2PrefixFilter
 from jinja2 import Template
 from lmformatenforcer import JsonSchemaParser
 from lmformatenforcer.integrations.exllamav2 import ExLlamaV2TokenEnforcerFilter
-from pydantic import DirectoryPath, Field, RootModel, StringConstraints
+from pydantic import Field, RootModel, StringConstraints
 from rich import print
 
 parser = ArgumentParser()
-parser.add_argument("-m", "--model", type=DirectoryPath, required=True)
+parser.add_argument("-m", "--model", type=Path, required=True)
 parser.add_argument("-c", "--cache_bits", type=int, default=16, choices=(4, 6, 8, 16))
 parser.add_argument("-s", "--seq_len", type=int, default=8192)
 parser.add_argument("-l", "--line_len", type=int, default=128)

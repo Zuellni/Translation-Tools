@@ -21,9 +21,9 @@ pip install flash_attn-X.X.X+cuXXX.torch2.X.X-cp3XX-cp3XX-win_amd64.whl
 ```
 
 ## Usage
-Download a model ([Llama-3-8B-Instruct](https://huggingface.co/turboderp/Llama-3-8B-Instruct-exl2) recommended) and translate something:
+Download a model ([Gemma-2-9B-It](https://huggingface.co/turboderp/gemma-2-9b-it-exl2) recommended) and translate something:
 ```
 git lfs install
-git clone https://huggingface.co/turboderp/Llama-3-8B-Instruct-exl2 -b 6.0bpw tools/model
-python tools/translate.py -m tools/model -i tools/test.zh.vtt
+git clone https://huggingface.co/turboderp/gemma-2-9b-it-exl2 -b 6.0bpw tools/model
+python tools/translate.py -h
 ```
