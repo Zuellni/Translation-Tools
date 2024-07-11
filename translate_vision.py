@@ -158,10 +158,10 @@ with progress as p, torch.inference_mode():
 
     generator = ExLlamaV2DynamicGenerator(model, cache, tokenizer)
     stop = [tokenizer.eos_token_id, "\n"]
-    result = ""
+    output = ""
 
 for index, line in enumerate(lines):
-    previous = f"Previous translation: {result}\n" if result else ""
+    previous = f"Previous translation: {output}\n" if output else ""
     caption = captions[index].strip()
     line = line.text.strip()
 
