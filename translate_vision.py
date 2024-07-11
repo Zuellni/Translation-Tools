@@ -151,10 +151,11 @@ with progress as p, torch.inference_mode():
     }
 
     model = ExLlamaV2(config)
-    loading = p.add_task("Loading translation model", total=len(model.modules) + 1)
-
     cache = caches[args.cache_bits](model)
+
+    loading = p.add_task("Loading translation model", total=len(model.modules) + 1)
     model.load_autosplit(cache, callback=lambda _, __: p.advance(loading))
+
     generator = ExLlamaV2DynamicGenerator(model, cache, tokenizer)
     stop = [tokenizer.eos_token_id, "\n"]
     result = ""
@@ -169,7 +170,7 @@ for index, line in enumerate(lines):
         "Use the provided screenshot description and previously translated captions, "
         "if available and relevant, as context for the current translation. "
         "Respond with the translation only, without adding anything.\n"
-        f"Image description: {caption}\n{previous}"
+        f"Screenshot description: {caption}\n{previous}"
         f"Caption: {line}"
     )
 
@@ -189,7 +190,7 @@ for index, line in enumerate(lines):
     ).strip()
 
     lines[index].text = output
-    print(f'\nImage: "{caption}"\nLine: "{line}"\nTranslation: "{output}"')
+    print(f'\nScreenshot: "{caption}"\nLine: "{line}"\nTranslation: "{output}"')
 
 name = args.input.name.replace("".join(args.input.suffixes), "")
 name = f"{name}.{lang_code}"
