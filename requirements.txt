@@ -5,5 +5,5 @@ pycountry
 webvtt-py
 
 # vision
-ffmpeg-python
+opencv-python
 transformers

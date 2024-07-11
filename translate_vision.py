@@ -5,7 +5,7 @@ from warnings import filterwarnings
 filterwarnings("ignore", category=SyntaxWarning)
 filterwarnings("ignore", category=UserWarning)
 
-import ffmpeg
+import cv2
 import pycountry
 import torch
 import webvtt
@@ -91,24 +91,22 @@ with progress as p:
 
     p.advance(loading)
 
+    captioning = p.add_task("Captioning video frames", total=len(subs))
+    video = cv2.VideoCapture(args.video)
+    fps = video.get(cv2.CAP_PROP_FPS)
+
     task = "<MORE_DETAILED_CAPTION>"
     inputs = []
 
-    probe = ffmpeg.probe(args.video)
-    info = next(s for s in probe["streams"] if s["codec_type"] == "video")
-    width = int(info["width"])
-    height = int(info["height"])
-
-    captioning = p.add_task("Captioning video frames", total=len(subs))
-
     for index, line in enumerate(subs):
-        frame, _ = (
-            ffmpeg.input(args.video, ss=line.start)
-            .output("pipe:", vframes=1, format="rawvideo", pix_fmt="rgb24")
-            .run(capture_stdout=True, capture_stderr=True)
-        )
+        h, m, s, ms = map(int, line.start.replace(".", ":").split(":"))
+        timestamp = int(h * 3600 + m * 60 + s + ms / 1000) * fps
+        video.set(cv2.CAP_PROP_POS_FRAMES, timestamp)
 
-        image = Image.frombytes("RGB", (width, height), frame)
+        _, frame = video.read()
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        image = Image.fromarray(frame)
+
         ids = processor(text=task, images=image, return_tensors="pt")
         ids.to(device=args.device, dtype=torch.bfloat16)
 
@@ -122,6 +120,7 @@ with progress as p:
         inputs.append({"line": line.text.strip(), "desc": desc.strip()})
         p.advance(captioning)
 
+    video.release()
     del captioner, processor
     torch.cuda.empty_cache()
 
