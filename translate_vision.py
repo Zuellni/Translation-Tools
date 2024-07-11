@@ -18,11 +18,7 @@ from exllamav2 import (
     ExLlamaV2Config,
     ExLlamaV2Tokenizer,
 )
-from exllamav2.generator import (
-    ExLlamaV2DynamicGenerator,
-    ExLlamaV2DynamicJob,
-    ExLlamaV2Sampler,
-)
+from exllamav2.generator import ExLlamaV2DynamicGenerator, ExLlamaV2Sampler
 from jinja2 import Template
 from PIL import Image
 from rich import print
@@ -37,16 +33,17 @@ from rich.progress import (
 from transformers import AutoProcessor, AutoModelForCausalLM
 
 parser = ArgumentParser()
-parser.add_argument("-c", "--captioning_model", type=Path, required=True)
+parser.add_argument("-a", "--captioning_model", type=Path, required=True)
 parser.add_argument("-m", "--translation_model", type=Path, required=True)
 parser.add_argument("-i", "--input", type=Path, required=True)
 parser.add_argument("-v", "--video", type=Path, required=True)
 parser.add_argument("-d", "--device", type=str, default="cuda")
 parser.add_argument("-f", "--lang_from", type=str, default="Chinese")
 parser.add_argument("-t", "--lang_to", type=str, default="English")
-parser.add_argument("-b", "--cache_bits", type=int, default=4, choices=(4, 6, 8, 16))
+parser.add_argument("-b", "--batch", type=int, default=8)
+parser.add_argument("-c", "--cache_bits", type=int, default=6, choices=(4, 6, 8, 16))
 parser.add_argument("-l", "--line_len", type=int, default=128)
-parser.add_argument("-s", "--seq_len", type=int, default=8192)
+parser.add_argument("-s", "--seq_len", type=int, default=4096)
 args = parser.parse_args()
 
 progress = Progress(
@@ -70,9 +67,31 @@ suffixes = {
     ".vtt": lambda i: webvtt.read(i),
 }
 
-subs = suffixes[args.input.suffix](args.input)
+lines = suffixes[args.input.suffix](args.input)
 
-with progress as p:
+with progress as p, torch.inference_mode():
+    extracting = p.add_task("Extracting video frames", total=len(lines))
+    video = cv2.VideoCapture(args.video)
+    fps = video.get(cv2.CAP_PROP_FPS)
+    images = []
+
+    for line in lines:
+        h, m, s, ms = map(int, line.start.replace(".", ":").split(":"))
+        timestamp = int(h * 3600 + m * 60 + s + ms / 1000) * fps
+        video.set(cv2.CAP_PROP_POS_FRAMES, timestamp)
+
+        _, frame = video.read()
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        image = Image.fromarray(frame)
+
+        if not images or len(images[-1]) == args.batch:
+            images.append([])
+
+        images[-1].append(image)
+        p.advance(extracting)
+
+    video.release()
+
     loading = p.add_task("Loading captioning model", total=3)
 
     captioner = AutoModelForCausalLM.from_pretrained(
@@ -81,6 +100,7 @@ with progress as p:
     )
 
     p.advance(loading)
+
     captioner.to(device=args.device, dtype=torch.bfloat16).eval()
     p.advance(loading)
 
@@ -91,36 +111,24 @@ with progress as p:
 
     p.advance(loading)
 
-    captioning = p.add_task("Captioning video frames", total=len(subs))
-    video = cv2.VideoCapture(args.video)
-    fps = video.get(cv2.CAP_PROP_FPS)
-
+    captioning = p.add_task("Captioning video frames", total=len(images))
     task = "<MORE_DETAILED_CAPTION>"
-    inputs = []
+    captions = []
 
-    for index, line in enumerate(subs):
-        h, m, s, ms = map(int, line.start.replace(".", ":").split(":"))
-        timestamp = int(h * 3600 + m * 60 + s + ms / 1000) * fps
-        video.set(cv2.CAP_PROP_POS_FRAMES, timestamp)
-
-        _, frame = video.read()
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        image = Image.fromarray(frame)
-
-        ids = processor(text=task, images=image, return_tensors="pt")
+    for batch in images:
+        ids = processor(text=[task] * len(batch), images=batch, return_tensors="pt")
         ids.to(device=args.device, dtype=torch.bfloat16)
 
-        output = captioner.generate(
+        outputs = captioner.generate(
             input_ids=ids["input_ids"],
             pixel_values=ids["pixel_values"],
             max_new_tokens=args.line_len,
-        )[0]
+        )
 
-        desc = processor.decode(output, skip_special_tokens=True)
-        inputs.append({"line": line.text.strip(), "desc": desc.strip()})
+        outputs = processor.batch_decode(outputs, skip_special_tokens=True)
+        captions.extend(outputs)
         p.advance(captioning)
 
-    video.release()
     del captioner, processor
     torch.cuda.empty_cache()
 
@@ -143,25 +151,26 @@ with progress as p:
     }
 
     model = ExLlamaV2(config)
-    cache = caches[args.cache_bits](model)
-
     loading = p.add_task("Loading translation model", total=len(model.modules) + 1)
-    model.load_autosplit(cache, callback=lambda _, __: p.advance(loading))
 
+    cache = caches[args.cache_bits](model)
+    model.load_autosplit(cache, callback=lambda _, __: p.advance(loading))
     generator = ExLlamaV2DynamicGenerator(model, cache, tokenizer)
     stop = [tokenizer.eos_token_id, "\n"]
     result = ""
 
-for index, input in enumerate(inputs):
+for index, line in enumerate(lines):
     previous = f"Previous translation: {result}\n" if result else ""
+    caption = captions[index].strip()
+    line = line.text.strip()
 
     instruction = (
         f"Translate the following caption from {lang_from} to {lang_to}. "
-        "Use the provided screenshot description and previously translated caption, "
+        "Use the provided screenshot description and previously translated captions, "
         "if available and relevant, as context for the current translation. "
         "Respond with the translation only, without adding anything.\n"
-        f"Image description: {input["desc"]}\n{previous}"
-        f"Caption: {input["line"]}"
+        f"Image description: {caption}\n{previous}"
+        f"Caption: {line}"
     )
 
     prompt = template.render(
@@ -170,34 +179,17 @@ for index, input in enumerate(inputs):
         add_generation_prompt=True,
     )
 
-    ids = tokenizer.encode(prompt, encode_special_tokens=True)
-
-    job = ExLlamaV2DynamicJob(
-        input_ids=ids,
-        gen_settings=settings,
+    output = generator.generate(
+        prompt=prompt,
         max_new_tokens=args.line_len,
+        gen_settings=settings,
+        encode_special_tokens=True,
         stop_conditions=stop,
-    )
+        completion_only=True,
+    ).strip()
 
-    generator.enqueue(job)
-    chunks = []
-    eos = False
-
-    while not eos:
-        for result in generator.iterate():
-            if result["stage"] == "streaming":
-                chunk = result.get("text", "")
-                chunks.append(chunk)
-                eos = result["eos"]
-
-    result = "".join(chunks).strip()
-    subs[index].text = result
-
-    print(
-        f'\nDescription: "{input['desc']}"\n'
-        f'Caption: "{input['line']}"\n'
-        f'Translation: "{result}"',
-    )
+    lines[index].text = output
+    print(f'\nImage: "{caption}"\nLine: "{line}"\nTranslation: "{output}"')
 
 name = args.input.name.replace("".join(args.input.suffixes), "")
 name = f"{name}.{lang_code}"
@@ -208,4 +200,4 @@ while output.exists():
     output = args.input.parent / f"{name}.{index}.vtt"
     index += 1
 
-subs.save(output)
+lines.save(output)
