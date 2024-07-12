@@ -38,12 +38,12 @@ parser.add_argument("-m", "--translation_model", type=Path, required=True)
 parser.add_argument("-i", "--input", type=Path, required=True)
 parser.add_argument("-v", "--video", type=Path, required=True)
 parser.add_argument("-d", "--device", type=str, default="cuda")
-parser.add_argument("-f", "--lang_from", type=str, default="Chinese")
-parser.add_argument("-t", "--lang_to", type=str, default="English")
+parser.add_argument("-f", "--lang_from", type=str, default="")
+parser.add_argument("-t", "--lang_to", type=str, default="")
 parser.add_argument("-b", "--batch", type=int, default=8)
-parser.add_argument("-c", "--cache_bits", type=int, default=6, choices=(4, 6, 8, 16))
+parser.add_argument("-c", "--cache_bits", type=int, default=16, choices=(4, 6, 8, 16))
 parser.add_argument("-l", "--line_len", type=int, default=128)
-parser.add_argument("-s", "--seq_len", type=int, default=4096)
+parser.add_argument("-s", "--seq_len", type=int, default=2048)
 args = parser.parse_args()
 
 progress = Progress(
@@ -58,8 +58,8 @@ progress = Progress(
 
 lang_from = args.lang_from.capitalize().strip()
 lang_to = args.lang_to.capitalize().strip()
-lang_code = pycountry.languages.get(name=lang_to)
-lang_code = lang_code.alpha_2 if lang_code else lang_to.lower()[:2]
+lang_code = pycountry.languages.get(name=lang_to) if lang_to else ""
+lang_code = f".{lang_code.alpha_2}" if lang_code else ""
 
 suffixes = {
     ".sbv": lambda i: webvtt.from_sbv(i),
@@ -68,9 +68,11 @@ suffixes = {
 }
 
 lines = suffixes[args.input.suffix](args.input)
+total = len(lines)
+digits = len(str(total))
 
 with progress as p, torch.inference_mode():
-    extracting = p.add_task("Extracting video frames", total=len(lines))
+    extracting = p.add_task("Extracting video frames", total=total)
     video = cv2.VideoCapture(args.video)
     fps = video.get(cv2.CAP_PROP_FPS)
     images = []
@@ -162,11 +164,13 @@ with progress as p, torch.inference_mode():
 
 for index, line in enumerate(lines):
     previous = f"Previous translation: {output}\n" if output else ""
+    from_lang_from = f" from {lang_from}" if lang_from else ""
+    to_lang_to = f" to {lang_to}" if lang_to else ""
     caption = captions[index].strip()
     line = line.text.strip()
 
     instruction = (
-        f"Translate the following caption from {lang_from} to {lang_to}. "
+        f"Translate the following caption{from_lang_from}{to_lang_to}. "
         "Use the provided screenshot description and previously translated captions, "
         "if available and relevant, as context for the current translation. "
         "Respond with the translation only, without adding anything.\n"
@@ -190,10 +194,16 @@ for index, line in enumerate(lines):
     ).strip()
 
     lines[index].text = output
-    print(f'\nScreenshot: "{caption}"\nLine: "{line}"\nTranslation: "{output}"')
+
+    print(
+        f"\nIndex: {index + 1:0{digits}}/{total}"
+        f'\nCaption: "{caption}"'
+        f'\nLine: "{line}"'
+        f'\nOutput: "{output}"'
+    )
 
 name = args.input.name.replace("".join(args.input.suffixes), "")
-name = f"{name}.{lang_code}"
+name = f"{name}{lang_code}"
 output = args.input.parent / f"{name}.vtt"
 index = 1
 
