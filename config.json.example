@@ -1,0 +1,14 @@
+{
+	"captioning": {
+		"model": "florence-2-large-ft",
+		"max_new_tokens": 1024,
+		"batch_size": 8,
+		"device": "cuda"
+	},
+	"translation": {
+		"model": "gemma-2-9b-it-6.0bpw-exl2",
+		"max_new_tokens": 128,
+		"max_seq_len": 2048,
+		"cache_bits": 16
+	}
+}
