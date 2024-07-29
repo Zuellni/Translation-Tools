@@ -104,17 +104,17 @@ for input in inputs:
     try:
         prompt = template.render(
             messages=messages,
-            bos_token=tokenizer.bos_token,
+            bos_token="",
             add_generation_prompt=True,
         )
     except:
         prompt = template.render(
             messages=[{"role": "user", "content": f"{instruction}\n{lines}"}],
-            bos_token=tokenizer.bos_token,
+            bos_token="",
             add_generation_prompt=True,
         )
 
-    input_ids = tokenizer.encode(prompt, encode_special_tokens=True)
+    input_ids = tokenizer.encode(prompt, add_bos=True, encode_special_tokens=True)
     input_len = input_ids.shape[-1]
     config.max_seq_len = int(max(init_len, subs_len * args.line_len / 4) // 256 * 256)
 
