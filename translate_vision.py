@@ -183,7 +183,7 @@ for index, line in enumerate(lines):
                 {"role": "system", "content": system},
                 {"role": "user", "content": user}
             ],
-            bos_token=tokenizer.bos_token,
+            bos_token="",
             add_generation_prompt=True,
         )
     except:
@@ -191,7 +191,7 @@ for index, line in enumerate(lines):
             messages=[
                 {"role": "user", "content": f"{system}\n{user}"}
             ],
-            bos_token=tokenizer.bos_token,
+            bos_token="",
             add_generation_prompt=True,
         )
 
