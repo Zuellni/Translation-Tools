@@ -10,7 +10,7 @@ mamba activate tools
 
 Clone the repository and install requirements:
 ```
-git clone https://github.com/zuellni/translation-tools --branch main --depth 1
+git clone https://github.com/zuellni/translation-tools
 cd translations-tools
 pip install -r requirements.txt
 ```
@@ -26,6 +26,6 @@ Download a model ([Gemma-2-9B-It](https://huggingface.co/turboderp/gemma-2-9b-it
 ```
 cd translations-tools
 git lfs install
-git clone https://huggingface.co/turboderp/gemma-2-9b-it-exl2 --branch 6.0bpw --depth 1
+git clone https://huggingface.co/turboderp/gemma-2-9b-it-exl2 -b 6.0bpw --depth 1
 python translate.py -h
 ```
